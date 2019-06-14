@@ -11,8 +11,10 @@ A pretty simple random message bot using [Mastodon](https://joinmastodon.org) st
 
 - Create an account for this bot. Please mark it as bot in configuration page.
 - In settings page, create a new application with read write permission and copy the private key.
-- Create a status to store messages (could be private) and copy his id. *Called `data status` after*
-- Reply to this status to add content. (Removing @acct, to limit self spam)
+- Create a status to store actions (could be private) and copy its id. *Called `root status` after*
+- Create a status to store content (could be private) and copy its id. *Called `data status` after*
+  - Reply to this status to add content. (Removing @acct, to limit self spam)
+- Reply to `root status` with options tags *(See `action status`)* like `#botodon #global #data_from_{DATA_STATUS_ID}`
 
 ### Botodon
 
@@ -23,65 +25,80 @@ npm install
 cp .env.sample .env
 ```
 
-Edit `.env` at least set `INSTANCE=domain.tld`, `TOKEN={ACCOUNT_PRIVATE_KEY}` and `DATA_STATUS={STATUS_ID}`
+In `.env` set
+- `DOMAIN={INSTANCE_DOMAIN}`
+- `TOKEN={ACCOUNT_PRIVATE_KEY}`
+- `ROOT_STATUS={ROOT_STATUS_ID}`
 
-Run `node index.js` with cron.
+Run `npm run start` with cron.
 
 Enjoy
 
-## Options
+## Main ideas
 
-`.env` file currently contains all need options but will maybe a day be moved to mastodon statuses.
+It uses statuses tags as configuration like `#xxx_yyy`. So content doesn't really matter except obviously for `content statuses`
 
-key | format | description
+There is 3 *types* of statuses:
+
+- *The* `root status` contains global options. See [Root status](#root-status)
+- `action status` contains action to run and is descendant of `root status`. See [Action status](#action-status)
+- `data status` is a data source like a folder containing `content statuses`
+- `content status` is a *normal* status its content *(including medias)* will send
+
+### Root status
+
+Its a folder containing `action statuses` and global options as tags.
+
+tag | description
+-- | --
+botodon | **Required** Enable tags processing
+async | Enable actions parallel processing
+deep | Use replies to actions as actions
+shared | **Unsafe** Include other users actions
+
+### Action status
+
+It describe an action to run
+
+#### Sample
+
+```
+#botodon #global #data_from_xxxxxxxxxxxx
+```
+
+Send standard status with random content from `xxxxxxxxxxxx` status
+
+#### Options
+
+tag | default | description
 -- | -- | --
-INSTANCE | Domain name | Mastodon instance domain name
-TOKEN | Private key | Bot account application private key
-DATA_STATUS | Status id | Messages storage status
-VISIBILITY | [visibility](https://docs.joinmastodon.org/api/entities/#visibility) | Bot message(s) visibility
-TARGET | See [Target](#target) | Define statuses targets
-TARGET_STATUSES | Statuses id (comma separated) | Used with some `TARGET` options
-TIMEOUT | milliseconds | API timeout
-MODERATION | See [Moderation](#moderation) | Define moderation method
-MODERATION_LIMIT | int | Used with `MODERATION=favourites_count`
+botodon | false | **Required** Enable tags processing
+**Data source** | | content send
+data_from_**ID** | empty | Add a source of content: `data status` id
+data_deep | false | Use replies to content as content
+data_shared | false | **Warning** Include other users content
+data_tagged_**TAG** | empty | Require content to have this tag
+data_favourited | false | Require content to be fav by bot account
+data_favourites_**N** | false | Require at least N favourites
+data_last_**N** | disabled | Only include  N last statuses
+data_weighted | false | Use `favourites_count` as promotional random weight
+data_same | false | Send same content for all targets
+**Targets** | | target accounts
+global | false | Send without target
+followers | false | Send to each followers
+followers_of_**ID** | empty | Send to each followers of given account id **Don't be evil**
+replies_to_**ID** | empty | Send to each repliers of given status id
+replies_deep | false | Include replies to replies
+replies_visibility | false | Use reply visibility
+favourites_**ID** | empty | Send ti each use who fav given status id
+visibility | unlisted | Visibility to use. One of `public`, `unlisted`, `private`, `direct`
 
-Note: malformed `.env` could produce unexpected behaviors
-
-### Target
-
-Define statuses targets with `TARGET` option:
-
-- `none`: nothing send *(default)*
-- `global`: single without target
-- `self`: single with self as target
-- `followers`: one to each follower
-- `replies`: use direct replies to `TARGET_STATUSES`
-- `replies_deep`: use deep replies to `TARGET_STATUSES`
-- `replies_smart`: same as `replies` but override `VISIBILITY with reply visibility`
-- `favourites`: use favourites of `TARGET_STATUSES`
-- `favourites_smart`: use favourites on `TARGET_STATUSES` by using tags as options
-
-#### Favourites Smart
-
-**WIP**
-
-### Moderation
-
-You could let community produce messages by making your `data status` public or unlisted.
-
-For moderation, simply use `MODERATION` option:
-
-- `none`: no check *(default)*
-- `self`: one your messages
-- `favourited`: bot account need to fav valid messages
-- `favourites_count`: need at least the number of fav defined with `MODERATION_LIMIT` option
 
 ## Multiple bots
 
 Add `.env.XXX` files and run `BOT_NAME=XXX node index.js`
 
-## Notes
-### Limits
+## Limits
 
 Mastodon context API use an arbitrary limit of `4096` since [#7564](https://github.com/tootsuite/mastodon/pull/7564), it's so the limit were new replies are excluded.
 
@@ -89,6 +106,8 @@ Followers soft limit of `999` *(must include pagination)* and hard limit of `750
 
 ## TODO
 
-every thing
-add selection mode
-multiple target
+- Add abstract and inherit on deep actions
+- Add actions time validators
+- Use followers pagination
+- Add options on `data status`
+- Add move pick options

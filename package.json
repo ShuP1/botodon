@@ -2,9 +2,17 @@
   "name": "botodon",
   "version": "0.0.1",
   "description": "A pretty simple random message bot using mastodon",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "npm run build && npm run launch",
+    "build": "tsc",
+    "launch": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "tslint --project .",
+    "action-add": "ts-node src/tools/action/add.ts",
+    "action-clear": "ts-node src/tools/action/clear.ts",
+    "action-list": "ts-node src/tools/action/list.ts",
+    "data-push": "ts-node src/tools/data/push.ts"
   },
   "keywords": [
     "mastodon",
@@ -15,6 +23,19 @@
   "dependencies": {
     "dotenv": "^8.0.0",
     "request": "^2.88.0",
-    "request-promise-native": "^1.0.7"
+    "request-promise-native": "^1.0.7",
+    "winston": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^12.0.8",
+    "@types/request": "^2.48.1",
+    "@types/request-promise-native": "^1.0.16",
+    "@types/winston": "^2.4.4",
+    "ts-node": "^8.2.0",
+    "tslint": "^5.17.0",
+    "tslint-config-prettier": "^1.18.0",
+    "tslint-plugin-prettier": "^2.0.1",
+    "typescript": "^3.5.2"
   }
 }
