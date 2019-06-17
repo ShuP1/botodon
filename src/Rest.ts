@@ -1,19 +1,21 @@
-import { RequestPromiseAPI } from 'request-promise-native'
+import { RequestPromise, RequestPromiseAPI } from 'request-promise-native'
 import { Account, Context, Status, StatusPost } from './types/mastodon'
+import Limiter from './utils/Limiter'
+import Logger from './utils/Logger';
 
 export default class Rest {
-  constructor(readonly api: RequestPromiseAPI) {}
+  constructor(private api: RequestPromiseAPI, private limiter: Limiter) {}
 
-  async getMe(): Promise<Account> {
-    return this.api.get('accounts/verify_credentials')
+  async getMe() {
+    return this.get<Account>('accounts/verify_credentials')
   }
 
-  async getStatus(id: string): Promise<Status> {
-    return this.api.get(`statuses/${id}`)
+  async getStatus(id: string) {
+    return this.get<Status>(`statuses/${id}`)
   }
 
-  async getContext(id: string): Promise<Context> {
-    return this.api.get(`statuses/${id}/context`)
+  async getContext(id: string) {
+    return this.get<Context>(`statuses/${id}/context`)
   }
 
   async getDescendants(id: string) {
@@ -27,22 +29,49 @@ export default class Rest {
         .filter(s => !account || s.account.id === account))
   }
 
-  async getFollowers(id: string): Promise<Account[]> {
+  async getFollowers(id: string) {
     // TODO: use link header
-    return this.api.get(`account/${id}/followers`, { qs: { limit: 999 } })
+    return this.get<Account[]>(`accounts/${id}/followers`, { limit: 999 })
   }
 
-  async getFavouritedBy(id: string): Promise<Account[]> {
+  async getFavouritedBy(id: string) {
     // TODO: use link header
-    return this.api.get(`statuses/${id}/favourited_by`, { qs: { limit: 999 } })
+    return this.get<Account[]>(`statuses/${id}/favourited_by`, { limit: 999 })
   }
 
-  async postStatus(status: StatusPost): Promise<Status> {
-    return this.api.post('statuses', { body: status })
+  async postStatus(status: StatusPost) {
+    return this.post<Status>('statuses', status)
   }
 
   async deleteStatus(id: string) {
-    return this.api.delete(`statuses/${id}`)
+    return this.delete<void>(`statuses/${id}`)
+  }
+
+  async postApp(redirectUri: string, scopes: string) {
+    return this.post<{ client_id: string, client_secret: string }>('/apps', {
+      client_name: 'botodon',
+      redirect_uris: redirectUri, scopes,
+      website: 'https://git.wadza.fr/me/botodon'
+    })
+  }
+
+  protected async call<T>(promise: RequestPromise) {
+    return this.limiter.promise<T>(promise.catch(err => {
+      Logger.error(`Rest: ${err.message} on ${err.options.uri}`)
+      throw err
+    }) as undefined as Promise<T>)
+  }
+
+  protected async get<T>(url: string, qs: object = {}) {
+    return this.call<T>(this.api.get(url, { qs }))
+  }
+
+  protected async post<T>(url: string, body: any) {
+    return this.call<T>(this.api.post(url, { body }))
+  }
+
+  protected async delete<T>(url: string) {
+    return this.call<T>(this.api.delete(url))
   }
 
 }

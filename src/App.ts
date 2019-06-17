@@ -1,4 +1,6 @@
-import { VisibilityType } from 'mastodon'
+import { Status, VisibilityType } from 'mastodon'
+import actionSource from './actions.json'
+import dataSource from './database.json'
 import Rest from './Rest'
 import { Action, ActionConfig, ActionConfigData, RootConfig, VISIBILITIES } from './types/config'
 import Logger from './utils/Logger'
@@ -6,6 +8,14 @@ import matcher from './utils/matcher'
 import Selector from './utils/Selector'
 
 export default class App {
+
+  static filterData(replies: Status[], config: ActionConfigData) {
+    return replies
+      .filter(s => !config.favourited || s.favourited)
+      .filter(s => s.favourites_count >= config.favourites)
+      .filter(s => config.tagged.every(tag => s.tags.map(t => t.name).includes(tag)))
+      .slice(0, config.last === -1 ? undefined : config.last)
+  }
 
   constructor(private rest: Rest) { }
 
@@ -23,7 +33,7 @@ export default class App {
       return
     }
 
-    for (const action of await this.loadActions(rootId, config.deep, config.shared ? undefined : me)) {
+    for (const action of await this.loadActions(rootId, config.deep, config.file, config.shared ? undefined : me)) {
       const promise = process(me, action)
       if (!config.async) {
         await promise
@@ -50,13 +60,14 @@ export default class App {
       async: false,
       botodon: false,
       deep: false,
-      shared: false
+      shared: false,
+      file: false
     }, status.tags.map(t => t.name).reverse())
   }
 
-  async loadActions(id: string, deep: boolean, account?: string) {
+  async loadActions(id: string, deep: boolean, file: boolean, account?: string) {
     const lines: Action[] = (await this.rest.getReplies(id, deep, account))
-      .map(s => ({ id: s.id, tags: s.tags.map(t => t.name) }))
+      .map(s => ({ id: s.id, tags: s.tags.map(t => t.name) })).concat(file ? actionSource : [])
 
     Logger.debug(`Found ${lines.length} action(s)`)
     if (!lines.length) {
@@ -70,6 +81,7 @@ export default class App {
     const config = matcher<ActionConfig>({
       botodon: false,
       data: {
+        file: false,
         from: [],
         deep: false,
         shared: false,
@@ -104,7 +116,7 @@ export default class App {
 
     // Data
     const datas = (await Promise.all(config.data.from.map(id => this.loadData(id, config.data, me))))
-      .reduce((a, b) => a.concat(b))
+      .reduce((a, b) => a.concat(b), config.data.file ? this.loadDataFile(config.data) : [])
     if (!datas.length) {
       Logger.error(`Action ${action.id}: Any content`)
       return
@@ -121,6 +133,7 @@ export default class App {
       config.followers_of.push(me)
     }
     for await (const followers of config.followers_of.map(id => this.rest.getFollowers(id))) {
+      Logger.debug(followers)
       targets.push(...followers.map(({ acct }) => ({ acct, visibility: config.visibility })))
     }
     for await (const replies of config.replies.to.map(id => this.rest.getReplies(id, config.replies.deep))) {
@@ -150,13 +163,17 @@ export default class App {
   }
 
   async loadData(id: string, config: ActionConfigData, me: string) {
-    const replies = await this.rest.getReplies(id, config.deep, config.shared ? undefined : me)
+    return App.filterData(await this.rest.getReplies(id, config.deep, config.shared ? undefined : me), config)
+  }
 
-    return replies
-      .filter(s => !config.favourited || s.favourited)
-      .filter(s => s.favourites_count >= config.favourites)
-      .filter(s => config.tagged.every(tag => s.tags.map(t => t.name).includes(tag)))
-      .slice(0, config.last === -1 ? undefined : config.last)
+  loadDataFile(config: ActionConfigData) {
+    return App.filterData(dataSource.filter(s => config.deep || !s.deep).map(s => ({
+      id: 'local', uri: 'file', account: { id: 'local', acct: 'file', bot: true, display_name: 'file', emojis: [] }, content: s.content || '',
+      created_at: '', emojis: [], favourited: s.favourited || false, favourites_count: 0, media_attachments: (s.medias || []).map(m => ({
+        id: m, description: '', url: 'file', preview_url: 'file', type: 'img'
+      })), sensitive: false, reblogged: false, reblogs_count: 0,
+      replies_count: 0, visibility: 'direct', tags: (s.tags || []).map(t => ({ name: t }))
+    })), config)
   }
 
 }

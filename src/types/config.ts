@@ -5,6 +5,7 @@ export interface RootConfig {
     async: boolean
     deep: boolean
     shared: boolean
+    file: boolean
 }
 export interface Action {
     id: string,
@@ -27,6 +28,7 @@ export interface ActionConfig {
 }
 
 export interface ActionConfigData {
+    file: boolean
     from: string[]
     deep: boolean
     shared: boolean

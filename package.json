@@ -12,7 +12,8 @@
     "action-add": "ts-node src/tools/action/add.ts",
     "action-clear": "ts-node src/tools/action/clear.ts",
     "action-list": "ts-node src/tools/action/list.ts",
-    "data-push": "ts-node src/tools/data/push.ts"
+    "data-push": "ts-node src/tools/data/push.ts",
+    "token-get": "ts-node src/tools/token/get.ts"
   },
   "keywords": [
     "mastodon",

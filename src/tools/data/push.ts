@@ -9,13 +9,16 @@ async function run() {
     return
   }
 
-  const post = async (in_reply_to_id: string, status: string) => rest.postStatus({
-    in_reply_to_id, status,
+  const post = async (inReplyToId: string, status: string) => rest.postStatus({
+    in_reply_to_id: inReplyToId,
+    status,
     visibility: visibility as any || 'direct'
   }).then(s => s.id)
 
+  // TODO: push database.json
   const data = JSON.parse(fs.readFileSync(file, 'utf8'))
   const folder = await post(rootStatus, title || file)
+  Logger.info('Content length', data.length)
   for (const row of data) {
     if (typeof row === 'string') {
       await post(folder, row)
@@ -29,6 +32,6 @@ async function run() {
       throw new Error('bad type ' + typeof row)
     }
   }
-  Logger.info('data added', folder)
+  Logger.info('Data added', folder)
 }
 run()

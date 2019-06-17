@@ -1,0 +1,15 @@
+[
+    {
+        "content": "[EN] Text\n\n[FR] Texte",
+        "weight": 42,
+        "favourited": true
+    },
+    {
+        "content": "Texte",
+        "tags": ["fr"]
+    },
+    {
+        "medias": ["id"],
+        "deep": true
+    }
+]
